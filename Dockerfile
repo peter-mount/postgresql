@@ -17,4 +17,3 @@ RUN mkdir -p /docker-entrypoint-initdb.d &&\
     update-locale LANG=$LANG
 
 COPY *.sh /docker-entrypoint-initdb.d/
-
