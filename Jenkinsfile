@@ -84,7 +84,7 @@ versions.each {
 
         // Create/amend the manifest with our architectures
         manifests = architectures.collect { architecture -> dockerImage( architecture, version ) }
-        sh 'docker manifest create -a ' + multiImage + ' ' + manifests.join(' ')
+        sh 'docker manifest create -a ' + dockerImage( '', version ) + ' ' + manifests.join(' ')
 
         // For each architecture annotate them to be correct
         architectures.each {
