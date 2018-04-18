@@ -4,8 +4,8 @@ repository= 'area51/'
 // image prefix
 imagePrefix = 'postgres'
 
-# The versions to build. Latest is first.
-# 9.6 is legacy but still in use
+// The versions to build. Latest is first.
+// 9.6 is legacy but still in use
 versions=[ '10', '9', '9.6' ]
 
 // The architectures to build, in format recognised by docker
