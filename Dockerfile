@@ -1,4 +1,5 @@
-FROM postgres:9.6
+ARG POSTGRES_VERSION
+FROM postgres:${POSTGRES_VERSION}
 MAINTAINER Peter Mount <peter@retep.org>
 
 # Enforce we have locales present to prevent issue where DB won't restart

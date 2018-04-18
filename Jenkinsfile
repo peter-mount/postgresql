@@ -4,11 +4,9 @@ repository= 'area51/'
 // image prefix
 imagePrefix = 'postgres'
 
-// The image version, master branch is latest in docker
-version=BRANCH_NAME
-if( version == 'master' ) {
-  version = '9.6'
-}
+# The versions to build. Latest is first.
+# 9.6 is legacy but still in use
+versions=[ '10', '9', '9.6' ]
 
 // The architectures to build, in format recognised by docker
 architectures = [ 'amd64', 'arm64v8' ]
@@ -28,7 +26,7 @@ def slaveId = {
 // The docker image name
 // architecture can be '' for multiarch images
 def dockerImage = {
-  architecture -> repository + imagePrefix + ':' +
+  architecture, version -> repository + imagePrefix + ':' +
     ( architecture=='' ? '' : ( architecture + '-' ) ) +
     version
 }
@@ -51,48 +49,55 @@ def goarch = {
 properties( [
   buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '7', numToKeepStr: '10')),
   disableConcurrentBuilds(),
-  disableResume()
+  disableResume(),
+  pipelineTriggers([
+    cron('H H * * *'),
+  ])
 ])
 
-architectures.each {
-  architecture -> node( slaveId( architecture ) ) {
-    stage( "Checkout " + architecture ) {
+def build = {
+  architecture, version -> node( slaveId( architecture ) ) {
+    stage( "Prepare" ) {
       checkout scm
-    }
-
-    stage( 'Prepare ' + architecture ) {
       sh 'docker pull postgres:' + version
     }
 
-    stage( 'Build ' + architecture ) {
-      sh 'docker build -t ' + dockerImage( architecture ) + ' .'
+    stage( 'Build' ) {
+      sh 'docker build -t ' + dockerImage( architecture, version ) + ' --build-arg POSTGRES_VERSION=' + version + ' .'
     }
 
     stage( 'Publish ' + architecture ) {
-      sh 'docker push ' + dockerImage( architecture )
+      sh 'docker push ' + dockerImage( architecture, version )
     }
   }
 }
 
-node( "AMD64" ) {
-  stage( 'Publish MultiArch' ) {
-    // The manifest to publish
-    multiImage = dockerImage( '' )
+versions.each {
+  version -> stage( version ) {
+    parallel(
+      'amd64': { build( 'amd64',version ) },
+      'arm64v8': { buuild( 'arm64v8', version ) }
+    )
 
-    // Create/amend the manifest with our architectures
-    manifests = architectures.collect { architecture -> dockerImage( architecture ) }
-    sh 'docker manifest create -a ' + multiImage + ' ' + manifests.join(' ')
+    node( 'AMD64' ) {
+      stage( 'publish' ) {
 
-    // For each architecture annotate them to be correct
-    architectures.each {
-      architecture -> sh 'docker manifest annotate' +
-        ' --os linux' +
-        ' --arch ' + goarch( architecture ) +
-        ' ' + multiImage +
-        ' ' + dockerImage( architecture )
+        // Create/amend the manifest with our architectures
+        manifests = architectures.collect { architecture -> dockerImage( architecture, version ) }
+        sh 'docker manifest create -a ' + multiImage + ' ' + manifests.join(' ')
+
+        // For each architecture annotate them to be correct
+        architectures.each {
+          architecture -> sh 'docker manifest annotate' +
+            ' --os linux' +
+            ' --arch ' + goarch( architecture ) +
+            ' ' + dockerImage( '', version ) +
+            ' ' + dockerImage( architecture, version )
+        }
+
+        // Publish the manifest
+        sh 'docker manifest push -p ' + dockerImage( '', version )
+      }
     }
-
-    // Publish the manifest
-    sh 'docker manifest push -p ' + multiImage
   }
 }
