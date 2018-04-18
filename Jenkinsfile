@@ -57,16 +57,16 @@ properties( [
 
 def build = {
   architecture, version -> node( slaveId( architecture ) ) {
-    stage( "Prepare" ) {
+    stage( 'Prepare ' + architecture + ' ' + version ) {
       checkout scm
       sh 'docker pull postgres:' + version
     }
 
-    stage( 'Build' ) {
+    stage( 'Build' + architecture + ' ' + version ) {
       sh 'docker build -t ' + dockerImage( architecture, version ) + ' --build-arg POSTGRES_VERSION=' + version + ' .'
     }
 
-    stage( 'Publish ' + architecture ) {
+    stage( 'Publish ' + architecture + ' ' + version ) {
       sh 'docker push ' + dockerImage( architecture, version )
     }
   }
@@ -78,9 +78,11 @@ versions.each {
       'amd64': { build( 'amd64',version ) },
       'arm64v8': { build( 'arm64v8', version ) }
     )
+}
 
+versions.each {
     node( 'AMD64' ) {
-      stage( 'publish' ) {
+      stage( 'publish ' + architecture ) {
 
         // Create/amend the manifest with our architectures
         manifests = architectures.collect { architecture -> dockerImage( architecture, version ) }
