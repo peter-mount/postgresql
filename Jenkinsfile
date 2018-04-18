@@ -76,7 +76,7 @@ versions.each {
   version -> stage( version ) {
     parallel(
       'amd64': { build( 'amd64',version ) },
-      'arm64v8': { buuild( 'arm64v8', version ) }
+      'arm64v8': { build( 'arm64v8', version ) }
     )
 
     node( 'AMD64' ) {
